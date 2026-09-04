@@ -22,7 +22,7 @@ CACHE_SECONDS = 900
 
 @st.cache_data(ttl=CACHE_SECONDS)
 def fetch_entry_names() -> dict[str, str]:
-    """Return group number to current squad name, read fresh so renames show up."""
+    """Return group number to current team name, read fresh so renames show up."""
     entries = requests.get(DETAILS_URL, headers=HEADERS, timeout=20).json()["league_entries"]
     by_entry_id = {e["entry_id"]: e["entry_name"] for e in entries}
     return {group: by_entry_id.get(entry_id, group) for group, entry_id in GROUP_ENTRY_IDS.items()}
@@ -97,11 +97,11 @@ def summarise(results: pd.DataFrame, key: str, names: dict[str, str]) -> pd.Data
     )
     table["PD"] = table["F"] - table["A"]
     if key == "group":
-        table.insert(1, "squad", table["group"].map(names))
+        table.insert(1, "team name", table["group"].map(names))
         table.insert(1, "manager", table["group"].map(GROUP_MANAGERS))
     table = table.sort_values(["Pts", "PD", "F"], ascending=False).reset_index(drop=True)
     table.insert(0, "pos", range(1, len(table) + 1))
-    ordered = [c for c in ("group", "manager", "squad", "club") if c in table]
+    ordered = [c for c in ("group", "manager", "team name", "club") if c in table]
     return table[["pos", *ordered, "P", "W", "D", "L", "F", "A", "PD", "Pts"]]
 
 

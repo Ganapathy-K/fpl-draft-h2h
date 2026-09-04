@@ -15,11 +15,11 @@ The head-to-head starts at GW2 — there are no GW1 fixtures.
 
 | Step | What happens |
 |---|---|
-| Fetch | `draft.premierleague.com/api/league/<id>/details` for squad names, then one `/entry/<entry_id>/history` call per group for per-gameweek points |
+| Fetch | `draft.premierleague.com/api/league/<id>/details` for team names, then one `/entry/<entry_id>/history` call per group for per-gameweek points |
 | Compute | join to the season's fixtures file, 3/1/0, points for and against, difference |
 | Display | one tab by group, one by club |
 
-Groups are keyed by **entry id, never squad name** — people rename teams mid-season and a name
+Groups are keyed by **entry id, never team name** — people rename teams mid-season and a name
 lookup would silently break. Names are re-read on each load so renames still display correctly.
 
 Unplayed gameweeks are excluded, so a future fixture never shows as a 0–0 draw.
