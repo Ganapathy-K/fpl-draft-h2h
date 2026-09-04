@@ -107,7 +107,30 @@ def full_height(row_count: int) -> int:
     return ROW_HEIGHT * row_count + HEADER_HEIGHT
 
 
-def summarise(results: pd.DataFrame, key: str, names: dict[str, str]) -> pd.DataFrame:
+def recent_form(results: pd.DataFrame, key: str, entity: str, matches: int = 5) -> str:
+    """Return the last few results for one club or group, most recent last."""
+    rows = results[results[key] == entity].sort_values("gw").tail(matches)
+    return "".join("W" if r.W else "D" if r.D else "L" for r in rows.itertuples())
+
+
+def next_opponents(fixtures: pd.DataFrame, played: set[int], key: str, entity: str) -> str:
+    """Return who this club or group meets in the next gameweek that has not been played."""
+    upcoming = fixtures[~fixtures["gw"].isin(played)]
+    if upcoming.empty:
+        return ""
+    gameweek = upcoming["gw"].min()
+    side = "club" if key == "club" else "group"
+    opponents = [
+        getattr(f, f"away_{side}") if getattr(f, f"home_{side}") == entity else getattr(f, f"home_{side}")
+        for f in upcoming[upcoming["gw"] == gameweek].itertuples()
+        if entity in (getattr(f, f"home_{side}"), getattr(f, f"away_{side}"))
+    ]
+    return " · ".join(opponents)
+
+
+def summarise(
+    results: pd.DataFrame, key: str, names: dict[str, str], fixtures: pd.DataFrame, played: set[int]
+) -> pd.DataFrame:
     """Return a league table grouped by club or by group, sorted on points then difference."""
     if results.empty:
         return pd.DataFrame()
@@ -118,6 +141,8 @@ def summarise(results: pd.DataFrame, key: str, names: dict[str, str]) -> pd.Data
         .reset_index()
     )
     table["PD"] = table["F"] - table["A"]
+    table["form"] = table[key].map(lambda e: recent_form(results, key, e))
+    table["next"] = table[key].map(lambda e: next_opponents(fixtures, played, key, e))
     if key == "group":
         table.insert(1, "team name", table["group"].map(names))
         table.insert(1, "manager", table["group"].map(GROUP_MANAGERS))
@@ -127,7 +152,7 @@ def summarise(results: pd.DataFrame, key: str, names: dict[str, str]) -> pd.Data
     if key == "club":
         table.insert(1, "badge", table["club"].map(fetch_club_badges()))
     ordered = [c for c in ("group", "manager", "team name", "clubs", "badge", "club") if c in table]
-    return table[["pos", *ordered, "P", "W", "D", "L", "F", "A", "PD", "Pts"]]
+    return table[["pos", *ordered, "P", "W", "D", "L", "F", "A", "PD", "Pts", "form", "next"]]
 
 
 st.set_page_config(page_title="Draft League H2H", page_icon="⚽", layout="wide")
@@ -136,7 +161,9 @@ st.caption(f"Season {SEASON} · league {LEAGUE_ID}")
 
 names = fetch_entry_names()
 points = fetch_gameweek_points()
-results = build_results(load_fixtures(), points)
+fixtures = load_fixtures()
+played = played_gameweeks(points)
+results = build_results(fixtures, points)
 
 if results.empty:
     st.info("No gameweeks played yet. The head-to-head starts at GW2.")
@@ -146,7 +173,7 @@ else:
     group_tab, club_tab = st.tabs(["Groups", "Clubs"])
     for tab, key in ((group_tab, "group"), (club_tab, "club")):
         with tab:
-            table = summarise(results, key, names)
+            table = summarise(results, key, names, fixtures, played)
             st.dataframe(
                 table,
                 hide_index=True,
