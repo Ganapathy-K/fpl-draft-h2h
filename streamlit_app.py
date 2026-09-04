@@ -80,6 +80,11 @@ def build_results(fixtures: pd.DataFrame, points: dict[str, dict[int, int]]) -> 
     return pd.DataFrame(rows)
 
 
+def full_height(row_count: int) -> int:
+    """Return a pixel height that shows every row, so the table never scrolls."""
+    return 36 * (row_count + 1) + 3
+
+
 def summarise(results: pd.DataFrame, key: str, names: dict[str, str]) -> pd.DataFrame:
     """Return a league table grouped by club or by group, sorted on points then difference."""
     if results.empty:
@@ -116,7 +121,12 @@ else:
     for tab, key in ((group_tab, "group"), (club_tab, "club")):
         with tab:
             table = summarise(results, key, names)
-            st.dataframe(table, hide_index=True, use_container_width=True)
+            st.dataframe(
+                table,
+                hide_index=True,
+                use_container_width=True,
+                height=full_height(len(table)),
+            )
             st.download_button(
                 f"Download the {key} table",
                 table.to_csv(index=False).encode("utf-8"),
