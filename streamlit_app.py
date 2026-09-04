@@ -55,6 +55,15 @@ def load_fixtures() -> pd.DataFrame:
     return fixtures[~fixtures["self"]].copy()
 
 
+def clubs_by_group(fixtures: pd.DataFrame) -> dict[str, str]:
+    """Return group number to the clubs it owns, so the table says who is playing for whom."""
+    owned: dict[str, set[str]] = {}
+    for fixture in fixtures.itertuples():
+        owned.setdefault(fixture.home_group, set()).add(fixture.home_club)
+        owned.setdefault(fixture.away_group, set()).add(fixture.away_club)
+    return {group: " · ".join(sorted(clubs)) for group, clubs in owned.items()}
+
+
 def played_gameweeks(points: dict[str, dict[int, int]]) -> set[int]:
     """Return gameweeks where at least one group has scored, so unplayed weeks are excluded."""
     return {gw for scores in points.values() for gw, scored in scores.items() if scored > 0}
@@ -108,11 +117,12 @@ def summarise(results: pd.DataFrame, key: str, names: dict[str, str]) -> pd.Data
     if key == "group":
         table.insert(1, "team name", table["group"].map(names))
         table.insert(1, "manager", table["group"].map(GROUP_MANAGERS))
+        table.insert(3, "clubs", table["group"].map(clubs_by_group(load_fixtures())))
     table = table.sort_values(["Pts", "PD", "F"], ascending=False).reset_index(drop=True)
     table.insert(0, "pos", range(1, len(table) + 1))
     if key == "club":
         table.insert(1, "badge", table["club"].map(fetch_club_badges()))
-    ordered = [c for c in ("group", "manager", "team name", "badge", "club") if c in table]
+    ordered = [c for c in ("group", "manager", "team name", "clubs", "badge", "club") if c in table]
     return table[["pos", *ordered, "P", "W", "D", "L", "F", "A", "PD", "Pts"]]
 
 
