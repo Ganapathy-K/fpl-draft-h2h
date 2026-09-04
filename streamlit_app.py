@@ -98,15 +98,13 @@ def build_results(fixtures: pd.DataFrame, points: dict[str, dict[int, int]]) -> 
     return pd.DataFrame(rows)
 
 
-def full_height(row_count: int, has_images: bool) -> int:
-    """Return a pixel height that shows every row, so the table never scrolls.
+ROW_HEIGHT = 35
+HEADER_HEIGHT = 38
 
-    Deliberately generous: a little blank space below the table costs nothing, a
-    scrollbar on finite data is the thing worth avoiding. Rows holding a crest are
-    taller than rows of plain text.
-    """
-    row_height = 44 if has_images else 36
-    return row_height * (row_count + 1) + 8
+
+def full_height(row_count: int) -> int:
+    """Return the exact pixel height of the table, so it neither scrolls nor leaves gaps."""
+    return ROW_HEIGHT * row_count + HEADER_HEIGHT
 
 
 def summarise(results: pd.DataFrame, key: str, names: dict[str, str]) -> pd.DataFrame:
@@ -152,9 +150,15 @@ else:
             st.dataframe(
                 table,
                 hide_index=True,
-                use_container_width=True,
-                height=full_height(len(table), has_images="badge" in table),
-                column_config={"badge": st.column_config.ImageColumn("", width="small")},
+                use_container_width=False,
+                height=full_height(len(table)),
+                column_config={
+                    "badge": st.column_config.ImageColumn("", width="small"),
+                    **{
+                        column: st.column_config.NumberColumn(column, width="small")
+                        for column in ("pos", "P", "W", "D", "L", "F", "A", "PD", "Pts")
+                    },
+                },
             )
             st.download_button(
                 f"Download the {key} table",
