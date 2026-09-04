@@ -24,4 +24,5 @@ GROUP_ENTRY_IDS = {
 }
 
 # The calendar: which club plays which, and which group owns each club.
-FIXTURES_FILE = "fixtures.csv"
+# Name it per season and ADD a new one each year — never overwrite the old file.
+FIXTURES_FILE = "fixtures_2026_27.csv"

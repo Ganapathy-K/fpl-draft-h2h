@@ -16,7 +16,7 @@ The head-to-head starts at GW2 — there are no GW1 fixtures.
 | Step | What happens |
 |---|---|
 | Fetch | `draft.premierleague.com/api/league/<id>/details` for squad names, then one `/entry/<entry_id>/history` call per group for per-gameweek points |
-| Compute | join to `fixtures.csv`, 3/1/0, points for and against, difference |
+| Compute | join to the season's fixtures file, 3/1/0, points for and against, difference |
 | Display | one tab by group, one by club |
 
 Groups are keyed by **entry id, never squad name** — people rename teams mid-season and a name
@@ -24,10 +24,22 @@ lookup would silently break. Names are re-read on each load so renames still dis
 
 Unplayed gameweeks are excluded, so a future fixture never shows as a 0–0 draw.
 
-## Each new season, edit `season.py` only
+## Each new season
 
-`SEASON`, `LEAGUE_ID`, `GROUP_ENTRY_IDS` and the fixtures file. The app itself does not change
-unless the format changes.
+1. Add the new calendar as `fixtures_<season>.csv` — **add, never overwrite**, so old seasons stay
+   in the repo.
+2. Update `SEASON`, `LEAGUE_ID`, `GROUP_ENTRY_IDS` and `FIXTURES_FILE` in `season.py`.
+
+The app itself does not change unless the format changes.
+
+Nothing is stored while the season runs — the table is computed live on every load. Use the
+**download button** under either table to keep a copy, and commit the final one at GW38.
+
+### GW1 and GW31 are skipped on purpose
+
+10 groups make 45 unique pairings. 36 gameweeks x 10 fixtures = 360 matches, which is exactly
+**8 meetings per pair**. 37 gameweeks would not divide evenly, so one gameweek beyond GW1 had to
+go, and GW31 was chosen.
 
 ### Choosing the number of groups
 

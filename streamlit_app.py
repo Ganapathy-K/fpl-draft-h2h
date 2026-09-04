@@ -113,10 +113,16 @@ else:
     latest = max(results["gw"])
     st.caption(f"Through gameweek {latest}. Refreshes every 15 minutes.")
     group_tab, club_tab = st.tabs(["Groups", "Clubs"])
-    with group_tab:
-        st.dataframe(summarise(results, "group", names), hide_index=True, use_container_width=True)
-    with club_tab:
-        st.dataframe(summarise(results, "club", names), hide_index=True, use_container_width=True)
+    for tab, key in ((group_tab, "group"), (club_tab, "club")):
+        with tab:
+            table = summarise(results, key, names)
+            st.dataframe(table, hide_index=True, use_container_width=True)
+            st.download_button(
+                f"Download the {key} table",
+                table.to_csv(index=False).encode("utf-8"),
+                file_name=f"draft_h2h_{key}_gw{latest}.csv",
+                mime="text/csv",
+            )
 
 st.divider()
 st.caption(
