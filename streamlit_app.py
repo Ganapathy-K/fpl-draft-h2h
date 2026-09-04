@@ -143,6 +143,8 @@ def summarise(
     table["PD"] = table["F"] - table["A"]
     table["form"] = table[key].map(lambda e: recent_form(results, key, e))
     table["next"] = table[key].map(lambda e: next_opponents(fixtures, played, key, e))
+    if key == "club":
+        table["next"] = table["next"].map(fetch_club_badges())
     if key == "group":
         table.insert(1, "team name", table["group"].map(names))
         table.insert(1, "manager", table["group"].map(GROUP_MANAGERS))
@@ -181,6 +183,9 @@ else:
                 height=full_height(len(table)),
                 column_config={
                     "badge": st.column_config.ImageColumn("", width="small"),
+                    "next": st.column_config.ImageColumn("next", width="small")
+                    if key == "club"
+                    else st.column_config.TextColumn("next"),
                     **{
                         column: st.column_config.NumberColumn(column, width="small")
                         for column in ("pos", "P", "W", "D", "L", "F", "A", "PD", "Pts")
