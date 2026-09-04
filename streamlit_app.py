@@ -105,8 +105,8 @@ def full_height(row_count: int, has_images: bool) -> int:
     scrollbar on finite data is the thing worth avoiding. Rows holding a crest are
     taller than rows of plain text.
     """
-    row_height = 46 if has_images else 38
-    return row_height * (row_count + 1) + 12
+    row_height = 44 if has_images else 36
+    return row_height * (row_count + 1) + 8
 
 
 def summarise(results: pd.DataFrame, key: str, names: dict[str, str]) -> pd.DataFrame:
@@ -132,7 +132,7 @@ def summarise(results: pd.DataFrame, key: str, names: dict[str, str]) -> pd.Data
     return table[["pos", *ordered, "P", "W", "D", "L", "F", "A", "PD", "Pts"]]
 
 
-st.set_page_config(page_title="Draft League H2H", page_icon="⚽", layout="centered")
+st.set_page_config(page_title="Draft League H2H", page_icon="⚽", layout="wide")
 st.title("⚽ Draft League — head to head")
 st.caption(f"Season {SEASON} · league {LEAGUE_ID}")
 
