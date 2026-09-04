@@ -138,7 +138,7 @@ else:
                 hide_index=True,
                 use_container_width=True,
                 height=full_height(len(table)),
-                column_config={"badge": st.column_config.ImageColumn("club")},
+                column_config={"badge": st.column_config.ImageColumn("", width="small")},
             )
             st.download_button(
                 f"Download the {key} table",
