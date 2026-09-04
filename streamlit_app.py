@@ -16,6 +16,8 @@ from season import FIXTURES_FILE, GROUP_ENTRY_IDS, GROUP_MANAGERS, LEAGUE_ID, SE
 
 DETAILS_URL = f"https://draft.premierleague.com/api/league/{LEAGUE_ID}/details"
 HISTORY_URL = "https://draft.premierleague.com/api/entry/{entry_id}/history"
+BOOTSTRAP_URL = "https://fantasy.premierleague.com/api/bootstrap-static/"
+BADGE_URL = "https://resources.premierleague.com/premierleague/badges/70/t{code}.png"
 HEADERS = {"User-Agent": "Mozilla/5.0"}
 CACHE_SECONDS = 900
 
@@ -38,6 +40,13 @@ def fetch_gameweek_points() -> dict[str, dict[int, int]]:
         ).json()["history"]
         points[group] = {row["event"]: row["points"] for row in history}
     return points
+
+
+@st.cache_data(ttl=CACHE_SECONDS)
+def fetch_club_badges() -> dict[str, str]:
+    """Return club short name to its badge image, so the table shows crests not codes."""
+    teams = requests.get(BOOTSTRAP_URL, headers=HEADERS, timeout=20).json()["teams"]
+    return {t["short_name"]: BADGE_URL.format(code=t["code"]) for t in teams}
 
 
 def load_fixtures() -> pd.DataFrame:
@@ -101,7 +110,9 @@ def summarise(results: pd.DataFrame, key: str, names: dict[str, str]) -> pd.Data
         table.insert(1, "manager", table["group"].map(GROUP_MANAGERS))
     table = table.sort_values(["Pts", "PD", "F"], ascending=False).reset_index(drop=True)
     table.insert(0, "pos", range(1, len(table) + 1))
-    ordered = [c for c in ("group", "manager", "team name", "club") if c in table]
+    if key == "club":
+        table.insert(1, "badge", table["club"].map(fetch_club_badges()))
+    ordered = [c for c in ("group", "manager", "team name", "badge", "club") if c in table]
     return table[["pos", *ordered, "P", "W", "D", "L", "F", "A", "PD", "Pts"]]
 
 
@@ -127,6 +138,7 @@ else:
                 hide_index=True,
                 use_container_width=True,
                 height=full_height(len(table)),
+                column_config={"badge": st.column_config.ImageColumn("club")},
             )
             st.download_button(
                 f"Download the {key} table",
