@@ -12,7 +12,7 @@ import pandas as pd
 import requests
 import streamlit as st
 
-from season import FIXTURES_FILE, GROUP_ENTRY_IDS, LEAGUE_ID, SEASON
+from season import FIXTURES_FILE, GROUP_ENTRY_IDS, GROUP_MANAGERS, LEAGUE_ID, SEASON
 
 DETAILS_URL = f"https://draft.premierleague.com/api/league/{LEAGUE_ID}/details"
 HISTORY_URL = "https://draft.premierleague.com/api/entry/{entry_id}/history"
@@ -98,10 +98,11 @@ def summarise(results: pd.DataFrame, key: str, names: dict[str, str]) -> pd.Data
     table["PD"] = table["F"] - table["A"]
     if key == "group":
         table.insert(1, "squad", table["group"].map(names))
+        table.insert(1, "manager", table["group"].map(GROUP_MANAGERS))
     table = table.sort_values(["Pts", "PD", "F"], ascending=False).reset_index(drop=True)
     table.insert(0, "pos", range(1, len(table) + 1))
-    return table[["pos", *([c for c in ("group", "squad", "club") if c in table]),
-                  "P", "W", "D", "L", "F", "A", "PD", "Pts"]]
+    ordered = [c for c in ("group", "manager", "squad", "club") if c in table]
+    return table[["pos", *ordered, "P", "W", "D", "L", "F", "A", "PD", "Pts"]]
 
 
 st.set_page_config(page_title="Draft League H2H", page_icon="⚽", layout="centered")

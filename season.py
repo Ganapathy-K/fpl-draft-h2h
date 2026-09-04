@@ -23,6 +23,21 @@ GROUP_ENTRY_IDS = {
     "G10": 420729,
 }
 
+# The person behind each group. The API only carries the name they signed up with,
+# which is not always what everyone calls them.
+GROUP_MANAGERS = {
+    "G1": "Ganapathy",
+    "G2": "Pratik",
+    "G3": "Nahul",
+    "G4": "Smit",
+    "G5": "Ayaan",
+    "G6": "Jaikishen",
+    "G7": "Oluwadunsin",
+    "G8": "Joswin",
+    "G9": "Janak",
+    "G10": "Emrev",
+}
+
 # The calendar: which club plays which, and which group owns each club.
 # Name it per season and ADD a new one each year — never overwrite the old file.
 FIXTURES_FILE = "fixtures_2026_27.csv"
