@@ -171,6 +171,8 @@ MATCH_LIST_STYLE = f"""
   border-bottom: 1px solid rgba(128, 128, 128, 0.18);
 }}
 .match-gw {{ opacity: 0.45; font-size: 0.78em; }}
+.match-team-cell {{ display: flex; align-items: center; gap: 8px; }}
+.match-crest {{ width: 22px; height: 22px; object-fit: contain; flex: 0 0 auto; }}
 .match-side {{ line-height: 1.2; }}
 .match-manager {{ font-weight: 600; font-size: 0.92em; }}
 .match-team {{ opacity: 0.55; font-size: 0.76em; }}
@@ -180,30 +182,44 @@ MATCH_LIST_STYLE = f"""
 """
 
 
-def side_html(group: str, club: str, names: dict[str, str], align: str) -> str:
-    """Return one half of a scoreline: manager on top, squad and club under it, in muted type."""
-    return (
+def side_html(
+    group: str, club: str, names: dict[str, str], badges: dict[str, str], align: str
+) -> str:
+    """Return one half of a scoreline: crest on the outside, manager and squad beside it.
+
+    The crest sits on the outer edge of each side so the two of them frame the score, which is
+    how a results list is read -- eye to the middle first, then out to whoever played.
+    """
+    crest = (
+        f"<img class='match-crest' src='{badges.get(club, '')}' alt='{escape(club)}'>"
+        if badges.get(club)
+        else ""
+    )
+    text = (
         f"<div class='match-side' style='text-align:{align}'>"
         f"<div class='match-manager'>{escape(GROUP_MANAGERS[group])}</div>"
         f"<div class='match-team'>{escape(names.get(group, group))} · {escape(club)}</div>"
         f"</div>"
     )
+    ordered = (text, crest) if align == "right" else (crest, text)
+    justify = "flex-end" if align == "right" else "flex-start"
+    return f"<div class='match-team-cell' style='justify-content:{justify}'>{''.join(ordered)}</div>"
 
 
-def match_row_html(match, names: dict[str, str]) -> str:
+def match_row_html(match, names: dict[str, str], badges: dict[str, str]) -> str:
     """Return one scoreline row, the winning side's total in bold."""
     home_weight = "700" if match.home_points > match.away_points else "400"
     away_weight = "700" if match.away_points > match.home_points else "400"
     return (
         "<div class='match-row'>"
         f"<div class='match-gw'>GW{match.gw}</div>"
-        f"{side_html(match.home_group, match.home_club, names, 'right')}"
+        f"{side_html(match.home_group, match.home_club, names, badges, 'right')}"
         "<div class='match-score'>"
         f"<span style='font-weight:{home_weight}'>{match.home_points}</span>"
         "<span class='sep'>|</span>"
         f"<span style='font-weight:{away_weight}'>{match.away_points}</span>"
         "</div>"
-        f"{side_html(match.away_group, match.away_club, names, 'left')}"
+        f"{side_html(match.away_group, match.away_club, names, badges, 'left')}"
         "</div>"
     )
 
@@ -237,7 +253,8 @@ def render_matches(matches: pd.DataFrame, names: dict[str, str], latest: int) ->
         st.info("No matches for that combination.")
         return
 
-    rows = "".join(match_row_html(match, names) for match in shown.itertuples())
+    badges = fetch_club_badges()
+    rows = "".join(match_row_html(match, names, badges) for match in shown.itertuples())
     st.markdown(
         f"{MATCH_LIST_STYLE}<div class='match-list'>{rows}</div>", unsafe_allow_html=True
     )
@@ -270,11 +287,27 @@ COLUMN_WIDTHS = {
     "A": 48,
     "PD": 46,
     "Pts": 46,
-    "form": 56,
+    "form": 92,
     "next": 66,
 }
 
 NUMERIC_COLUMNS = ("pos", "P", "W", "D", "L", "F", "A", "PD", "Pts")
+
+# Form as colour, because WWLLW has to be read letter by letter while a run of colour is taken
+# in at a glance. Squares rather than coloured letters: a Streamlit table cell holds one string
+# and cannot style parts of it, so per-letter colour would mean giving up the sortable table.
+# The CSV download keeps the letters -- see below, the export is built from the uncoloured
+# frame so a spreadsheet gets W/D/L rather than characters it cannot filter on.
+FORM_SQUARES = {"W": "🟩", "D": "🟨", "L": "🟥"}
+
+
+def with_form_colours(table: pd.DataFrame) -> pd.DataFrame:
+    """Return a display copy whose form column is coloured squares instead of letters."""
+    shown = table.copy()
+    shown["form"] = shown["form"].map(
+        lambda run: "".join(FORM_SQUARES.get(result, result) for result in run)
+    )
+    return shown
 
 
 def column_settings(table: pd.DataFrame, key: str) -> dict:
@@ -371,7 +404,7 @@ else:
         with tab:
             table = summarise(results, key, names, fixtures, played)
             st.dataframe(
-                table,
+                with_form_colours(table),
                 hide_index=True,
                 width="content",
                 height=full_height(len(table)),
