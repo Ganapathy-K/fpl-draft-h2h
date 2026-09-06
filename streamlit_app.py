@@ -50,7 +50,7 @@ def fetch_club_badges() -> dict[str, str]:
 
 
 def load_fixtures() -> pd.DataFrame:
-    """Return the fixed GW2-GW14 calendar, dropping matches a group plays against itself."""
+    """Return the fixed GW2-GW38 calendar, dropping matches a group plays against itself."""
     fixtures = pd.read_csv(FIXTURES_FILE)
     return fixtures[~fixtures["self"]].copy()
 
@@ -96,6 +96,105 @@ def build_results(fixtures: pd.DataFrame, points: dict[str, dict[int, int]]) -> 
                 }
             )
     return pd.DataFrame(rows)
+
+
+def build_matches(fixtures: pd.DataFrame, points: dict[str, dict[int, int]]) -> pd.DataFrame:
+    """Return one row per played match, both sides on the same row.
+
+    `build_results` splits each match into two rows, one per club, because a league table adds
+    up what each club did. A results list is the other shape: the two sides belong together so
+    a scoreline can be read across. Same source numbers, so the two views cannot disagree.
+    """
+    finished = played_gameweeks(points)
+    rows = []
+    for fixture in fixtures.itertuples():
+        if fixture.gw not in finished:
+            continue
+        rows.append(
+            {
+                "gw": fixture.gw,
+                "home_group": fixture.home_group,
+                "home_club": fixture.home_club,
+                "home_points": points[fixture.home_group].get(fixture.gw, 0),
+                "away_group": fixture.away_group,
+                "away_club": fixture.away_club,
+                "away_points": points[fixture.away_group].get(fixture.gw, 0),
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+ALL_TEAMS = "All teams"
+
+
+def team_label(group: str, names: dict[str, str]) -> str:
+    """Return the manager and their current squad name, which is how people refer to a side."""
+    return f"{GROUP_MANAGERS[group]} — {names.get(group, group)}"
+
+
+def gameweek_label(gameweek: int, latest: int) -> str:
+    """Return the gameweek name, marking the most recent one so the default reads as current."""
+    return f"Gameweek {gameweek} — current" if gameweek == latest else f"Gameweek {gameweek}"
+
+
+def render_side(column, group: str, club: str, names: dict[str, str], align: str) -> None:
+    """Draw one half of a scoreline: manager on top, squad name under it, in muted type."""
+    column.markdown(
+        f"<div style='text-align:{align};line-height:1.25'>"
+        f"<span style='font-weight:600'>{GROUP_MANAGERS[group]}</span><br>"
+        f"<span style='opacity:0.6;font-size:0.85em'>{names.get(group, group)} · {club}</span>"
+        f"</div>",
+        unsafe_allow_html=True,
+    )
+
+
+def render_matches(matches: pd.DataFrame, names: dict[str, str], latest: int) -> None:
+    """Draw the results list, filtered by gameweek and by team, newest gameweek first."""
+    groups = sorted(GROUP_ENTRY_IDS, key=lambda g: int(g[1:]))
+    team_options = [ALL_TEAMS] + [team_label(group, names) for group in groups]
+    gameweeks = sorted(matches["gw"].unique(), reverse=True)
+    gameweek_options = [gameweek_label(gameweek, latest) for gameweek in gameweeks]
+
+    st.session_state.setdefault("match_team", ALL_TEAMS)
+    st.session_state.setdefault("match_gw", gameweek_label(latest, latest))
+
+    def reset_filters() -> None:
+        st.session_state["match_team"] = ALL_TEAMS
+        st.session_state["match_gw"] = gameweek_label(latest, latest)
+
+    team_column, gameweek_column, reset_column, _ = st.columns([3, 3, 1, 5])
+    chosen_team = team_column.selectbox("Team", team_options, key="match_team")
+    chosen_gameweek = gameweek_column.selectbox("Gameweek", gameweek_options, key="match_gw")
+    reset_column.markdown("<div style='height:1.9em'></div>", unsafe_allow_html=True)
+    reset_column.button("Reset ↺", on_click=reset_filters)
+
+    shown = matches[matches["gw"] == gameweeks[gameweek_options.index(chosen_gameweek)]]
+    if chosen_team != ALL_TEAMS:
+        chosen_group = groups[team_options.index(chosen_team) - 1]
+        shown = shown[(shown["home_group"] == chosen_group) | (shown["away_group"] == chosen_group)]
+
+    if shown.empty:
+        st.info("No matches for that combination.")
+        return
+
+    for match in shown.itertuples():
+        gameweek_cell, home, score, away = st.columns([1, 4, 2, 4])
+        gameweek_cell.markdown(
+            f"<div style='opacity:0.5;padding-top:0.4em'>GW{match.gw}</div>",
+            unsafe_allow_html=True,
+        )
+        render_side(home, match.home_group, match.home_club, names, "right")
+        home_weight = "700" if match.home_points > match.away_points else "400"
+        away_weight = "700" if match.away_points > match.home_points else "400"
+        score.markdown(
+            f"<div style='text-align:center;padding-top:0.3em'>"
+            f"<span style='font-weight:{home_weight}'>{match.home_points}</span>"
+            f"<span style='opacity:0.3'> &nbsp;|&nbsp; </span>"
+            f"<span style='font-weight:{away_weight}'>{match.away_points}</span></div>",
+            unsafe_allow_html=True,
+        )
+        render_side(away, match.away_group, match.away_club, names, "left")
+        st.divider()
 
 
 ROW_HEIGHT = 35
@@ -172,14 +271,16 @@ if results.empty:
 else:
     latest = max(results["gw"])
     st.caption(f"Through gameweek {latest}. Refreshes every 15 minutes.")
-    group_tab, club_tab = st.tabs(["Groups", "Clubs"])
+    group_tab, club_tab, matches_tab = st.tabs(["Groups", "Clubs", "Matches"])
+    with matches_tab:
+        render_matches(build_matches(fixtures, points), names, latest)
     for tab, key in ((group_tab, "group"), (club_tab, "club")):
         with tab:
             table = summarise(results, key, names, fixtures, played)
             st.dataframe(
                 table,
                 hide_index=True,
-                use_container_width=False,
+                width="content",
                 height=full_height(len(table)),
                 column_config={
                     "badge": st.column_config.ImageColumn("", width="small"),
