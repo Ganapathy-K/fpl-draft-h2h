@@ -222,7 +222,7 @@ def render_matches(matches: pd.DataFrame, names: dict[str, str], latest: int) ->
         st.session_state["match_team"] = ALL_TEAMS
         st.session_state["match_gw"] = gameweek_label(latest, latest)
 
-    team_column, gameweek_column, reset_column, _ = st.columns([3, 3, 1, 7])
+    team_column, gameweek_column, reset_column, _ = st.columns([4, 4, 2, 5])
     chosen_team = team_column.selectbox("Team", team_options, key="match_team")
     chosen_gameweek = gameweek_column.selectbox("Gameweek", gameweek_options, key="match_gw")
     reset_column.markdown("<div style='height:1.9em'></div>", unsafe_allow_html=True)
