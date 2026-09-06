@@ -8,6 +8,8 @@ Real Premier League results never count.
 Open the link, see the current table. Nothing to run or send each week.
 """
 
+from html import escape
+
 import pandas as pd
 import requests
 import streamlit as st
@@ -137,14 +139,55 @@ def gameweek_label(gameweek: int, latest: int) -> str:
     return f"Gameweek {gameweek} — current" if gameweek == latest else f"Gameweek {gameweek}"
 
 
-def render_side(column, group: str, club: str, names: dict[str, str], align: str) -> None:
-    """Draw one half of a scoreline: manager on top, squad name under it, in muted type."""
-    column.markdown(
-        f"<div style='text-align:{align};line-height:1.25'>"
-        f"<span style='font-weight:600'>{GROUP_MANAGERS[group]}</span><br>"
-        f"<span style='opacity:0.6;font-size:0.85em'>{names.get(group, group)} · {club}</span>"
-        f"</div>",
-        unsafe_allow_html=True,
+# The results list is drawn as one HTML block rather than a set of st.columns per match. A
+# Streamlit column carries its own block padding, so ten matches meant ten stacked containers
+# and a page far taller and wider than the two tables beside it. One grid, one render.
+MATCH_LIST_STYLE = """
+<style>
+.match-list { max-width: 780px; }
+.match-row {
+  display: grid;
+  grid-template-columns: 42px 1fr 74px 1fr;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 0;
+  border-bottom: 1px solid rgba(128, 128, 128, 0.18);
+}
+.match-gw { opacity: 0.45; font-size: 0.78em; }
+.match-side { line-height: 1.2; }
+.match-manager { font-weight: 600; font-size: 0.92em; }
+.match-team { opacity: 0.55; font-size: 0.76em; }
+.match-score { text-align: center; font-size: 0.95em; }
+.match-score .sep { opacity: 0.3; padding: 0 5px; }
+</style>
+"""
+
+
+def side_html(group: str, club: str, names: dict[str, str], align: str) -> str:
+    """Return one half of a scoreline: manager on top, squad and club under it, in muted type."""
+    return (
+        f"<div class='match-side' style='text-align:{align}'>"
+        f"<div class='match-manager'>{escape(GROUP_MANAGERS[group])}</div>"
+        f"<div class='match-team'>{escape(names.get(group, group))} · {escape(club)}</div>"
+        f"</div>"
+    )
+
+
+def match_row_html(match, names: dict[str, str]) -> str:
+    """Return one scoreline row, the winning side's total in bold."""
+    home_weight = "700" if match.home_points > match.away_points else "400"
+    away_weight = "700" if match.away_points > match.home_points else "400"
+    return (
+        "<div class='match-row'>"
+        f"<div class='match-gw'>GW{match.gw}</div>"
+        f"{side_html(match.home_group, match.home_club, names, 'right')}"
+        "<div class='match-score'>"
+        f"<span style='font-weight:{home_weight}'>{match.home_points}</span>"
+        "<span class='sep'>|</span>"
+        f"<span style='font-weight:{away_weight}'>{match.away_points}</span>"
+        "</div>"
+        f"{side_html(match.away_group, match.away_club, names, 'left')}"
+        "</div>"
     )
 
 
@@ -162,7 +205,7 @@ def render_matches(matches: pd.DataFrame, names: dict[str, str], latest: int) ->
         st.session_state["match_team"] = ALL_TEAMS
         st.session_state["match_gw"] = gameweek_label(latest, latest)
 
-    team_column, gameweek_column, reset_column, _ = st.columns([3, 3, 1, 5])
+    team_column, gameweek_column, reset_column, _ = st.columns([3, 3, 1, 7])
     chosen_team = team_column.selectbox("Team", team_options, key="match_team")
     chosen_gameweek = gameweek_column.selectbox("Gameweek", gameweek_options, key="match_gw")
     reset_column.markdown("<div style='height:1.9em'></div>", unsafe_allow_html=True)
@@ -177,24 +220,10 @@ def render_matches(matches: pd.DataFrame, names: dict[str, str], latest: int) ->
         st.info("No matches for that combination.")
         return
 
-    for match in shown.itertuples():
-        gameweek_cell, home, score, away = st.columns([1, 4, 2, 4])
-        gameweek_cell.markdown(
-            f"<div style='opacity:0.5;padding-top:0.4em'>GW{match.gw}</div>",
-            unsafe_allow_html=True,
-        )
-        render_side(home, match.home_group, match.home_club, names, "right")
-        home_weight = "700" if match.home_points > match.away_points else "400"
-        away_weight = "700" if match.away_points > match.home_points else "400"
-        score.markdown(
-            f"<div style='text-align:center;padding-top:0.3em'>"
-            f"<span style='font-weight:{home_weight}'>{match.home_points}</span>"
-            f"<span style='opacity:0.3'> &nbsp;|&nbsp; </span>"
-            f"<span style='font-weight:{away_weight}'>{match.away_points}</span></div>",
-            unsafe_allow_html=True,
-        )
-        render_side(away, match.away_group, match.away_club, names, "left")
-        st.divider()
+    rows = "".join(match_row_html(match, names) for match in shown.itertuples())
+    st.markdown(
+        f"{MATCH_LIST_STYLE}<div class='match-list'>{rows}</div>", unsafe_allow_html=True
+    )
 
 
 ROW_HEIGHT = 35
