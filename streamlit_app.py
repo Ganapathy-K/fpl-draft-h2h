@@ -246,6 +246,52 @@ def render_matches(matches: pd.DataFrame, names: dict[str, str], latest: int) ->
 ROW_HEIGHT = 35
 HEADER_HEIGHT = 38
 
+# Exact pixel widths, so all fifteen group columns fit a laptop window and the table never
+# scrolls sideways. Streamlit's named sizes (small/medium/large) pushed the last three columns
+# off-screen behind a scrollbar, which hid Pts -- the column the table is sorted on, and the
+# one number that says who is winning.
+#
+# Each width is set by the longest real value, not by the header: "Group 7 (MARIOSUPER)" sizes
+# the team name and "Oluwadunsin" the manager. Both tables read from this one map so the same
+# column is never a different width on the two tabs.
+COLUMN_WIDTHS = {
+    "pos": 42,
+    "group": 48,
+    "manager": 100,
+    "team name": 150,
+    "clubs": 82,
+    "badge": 44,
+    "club": 56,
+    "P": 38,
+    "W": 38,
+    "D": 38,
+    "L": 38,
+    "F": 48,
+    "A": 48,
+    "PD": 46,
+    "Pts": 46,
+    "form": 56,
+    "next": 66,
+}
+
+NUMERIC_COLUMNS = ("pos", "P", "W", "D", "L", "F", "A", "PD", "Pts")
+
+
+def column_settings(table: pd.DataFrame, key: str) -> dict:
+    """Return how each column is drawn: fixed width, and crests as images on the club table."""
+    settings = {}
+    for column in table.columns:
+        width = COLUMN_WIDTHS[column]
+        if column == "badge":
+            settings[column] = st.column_config.ImageColumn("", width=width)
+        elif column == "next" and key == "club":
+            settings[column] = st.column_config.ImageColumn("next", width=width)
+        elif column in NUMERIC_COLUMNS:
+            settings[column] = st.column_config.NumberColumn(column, width=width)
+        else:
+            settings[column] = st.column_config.TextColumn(column, width=width)
+    return settings
+
 
 def full_height(row_count: int) -> int:
     """Return the exact pixel height of the table, so it neither scrolls nor leaves gaps."""
@@ -329,16 +375,7 @@ else:
                 hide_index=True,
                 width="content",
                 height=full_height(len(table)),
-                column_config={
-                    "badge": st.column_config.ImageColumn("", width="small"),
-                    "next": st.column_config.ImageColumn("next", width="small")
-                    if key == "club"
-                    else st.column_config.TextColumn("next"),
-                    **{
-                        column: st.column_config.NumberColumn(column, width="small")
-                        for column in ("pos", "P", "W", "D", "L", "F", "A", "PD", "Pts")
-                    },
-                },
+                column_config=column_settings(table, key),
             )
             st.download_button(
                 f"Download the {key} table",
