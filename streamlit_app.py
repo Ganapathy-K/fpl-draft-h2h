@@ -139,26 +139,43 @@ def gameweek_label(gameweek: int, latest: int) -> str:
     return f"Gameweek {gameweek} — current" if gameweek == latest else f"Gameweek {gameweek}"
 
 
+# One ceiling for the whole page, so the three tabs share a left edge and an outer limit
+# instead of each sprawling to the width of the browser. The widest thing on the page is the
+# group table's fifteen columns, and this is set just above it so that table still never
+# scrolls sideways. Narrower tabs simply end sooner, which reads as deliberate; stretching
+# them to match would put a gap between a manager's name and their score.
+PAGE_MAX_WIDTH = 1100
+
+# The results list sits inside that ceiling rather than filling it. A scoreline is read
+# across, so the two sides have to stay close enough to take in at a glance.
+MATCH_LIST_MAX_WIDTH = 900
+
+PAGE_STYLE = f"""
+<style>
+.block-container, .stMainBlockContainer {{ max-width: {PAGE_MAX_WIDTH}px; }}
+</style>
+"""
+
 # The results list is drawn as one HTML block rather than a set of st.columns per match. A
 # Streamlit column carries its own block padding, so ten matches meant ten stacked containers
 # and a page far taller and wider than the two tables beside it. One grid, one render.
-MATCH_LIST_STYLE = """
+MATCH_LIST_STYLE = f"""
 <style>
-.match-list { max-width: 780px; }
-.match-row {
+.match-list {{ max-width: {MATCH_LIST_MAX_WIDTH}px; }}
+.match-row {{
   display: grid;
   grid-template-columns: 42px 1fr 74px 1fr;
   align-items: center;
   gap: 6px;
   padding: 7px 0;
   border-bottom: 1px solid rgba(128, 128, 128, 0.18);
-}
-.match-gw { opacity: 0.45; font-size: 0.78em; }
-.match-side { line-height: 1.2; }
-.match-manager { font-weight: 600; font-size: 0.92em; }
-.match-team { opacity: 0.55; font-size: 0.76em; }
-.match-score { text-align: center; font-size: 0.95em; }
-.match-score .sep { opacity: 0.3; padding: 0 5px; }
+}}
+.match-gw {{ opacity: 0.45; font-size: 0.78em; }}
+.match-side {{ line-height: 1.2; }}
+.match-manager {{ font-weight: 600; font-size: 0.92em; }}
+.match-team {{ opacity: 0.55; font-size: 0.76em; }}
+.match-score {{ text-align: center; font-size: 0.95em; }}
+.match-score .sep {{ opacity: 0.3; padding: 0 5px; }}
 </style>
 """
 
@@ -286,6 +303,7 @@ def summarise(
 
 
 st.set_page_config(page_title="Draft League H2H", page_icon="⚽", layout="wide")
+st.markdown(PAGE_STYLE, unsafe_allow_html=True)
 st.title("⚽ Draft League — head to head")
 st.caption(f"Season {SEASON} · league {LEAGUE_ID}")
 
